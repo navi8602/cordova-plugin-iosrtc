@@ -3,17 +3,14 @@
 'use strict';
 
 // This hook automates this:
-// https://github.com/BasqueVoIPMafia/cordova-plugin-iosrtc/blob/master/docs/Building.md
+// https://github.com/eface2face/cordova-plugin-iosrtc/blob/master/docs/Building.md
 
 var
 	fs = require("fs"),
 	path = require("path"),
-	xcode = require('xcode'),
 
 	BUILD_VERSION = '9.0',
 	BUILD_VERSION_XCODE = '"' + BUILD_VERSION + '"',
-	SWIFT_VERSION = '3.0',
-	SWIFT_VERSION_XCODE = '"' + SWIFT_VERSION + '"',
 	RUNPATH_SEARCH_PATHS = '@executable_path/Frameworks',
 	RUNPATH_SEARCH_PATHS_XCODE = '"' + RUNPATH_SEARCH_PATHS + '"',
 	ENABLE_BITCODE = 'NO',
@@ -54,6 +51,7 @@ function nonComments(obj) {
 
 module.exports = function (context) {
 	var
+		xcode = context.requireCordovaModule('xcode'),
 		projectRoot = context.opts.projectRoot,
 		projectName = getProjectName(projectRoot),
 		xcconfigPath = path.join(projectRoot, '/platforms/ios/cordova/build.xcconfig'),
@@ -87,7 +85,6 @@ module.exports = function (context) {
 	debug('- "Runpath Search Paths" to: ' + RUNPATH_SEARCH_PATHS_XCODE);
 	debug('- "Objective-C Bridging Header" to: ' + swiftBridgingHeadXcode);
 	debug('- "ENABLE_BITCODE" set to: ' + ENABLE_BITCODE_XCODE);
-	debug('- "SWIFT_VERSION" set to: ' + SWIFT_VERSION_XCODE);
 
 
 	// Massaging the files
@@ -97,7 +94,6 @@ module.exports = function (context) {
 	swiftOptions.push('SWIFT_OBJC_BRIDGING_HEADER = ' + swiftBridgingHead);
 	swiftOptions.push('IPHONEOS_DEPLOYMENT_TARGET = ' + BUILD_VERSION);
 	swiftOptions.push('ENABLE_BITCODE = ' + ENABLE_BITCODE);
-	swiftOptions.push('SWIFT_VERSION = ' + SWIFT_VERSION);
 	// NOTE: Not needed
 	// swiftOptions.push('EMBEDDED_CONTENT_CONTAINS_SWIFT = YES');
 	fs.appendFileSync(xcconfigPath, swiftOptions.join('\n'));
@@ -105,31 +101,22 @@ module.exports = function (context) {
 
 	// "project.pbxproj"
 	// Parsing it
-	xcodeProject.parse(function (error) {
-		var configurations, buildSettings;
+	xcodeProject.parseSync();
+	var configurations, buildSettings;
 
-		if (error) {
-			debugerror('an error occurred during the parsing of the project file');
-
-			return;
-		}
-
-
-		configurations = nonComments(xcodeProject.pbxXCBuildConfigurationSection());
-		// Adding or changing the parameters we need
-		Object.keys(configurations).forEach(function (config) {
-			buildSettings = configurations[config].buildSettings;
-			buildSettings.LD_RUNPATH_SEARCH_PATHS = RUNPATH_SEARCH_PATHS_XCODE;
-			buildSettings.SWIFT_OBJC_BRIDGING_HEADER = swiftBridgingHeadXcode;
-			buildSettings.IPHONEOS_DEPLOYMENT_TARGET = BUILD_VERSION_XCODE;
-			buildSettings.ENABLE_BITCODE = ENABLE_BITCODE_XCODE;
-			buildSettings.SWIFT_VERSION = SWIFT_VERSION_XCODE;
-		});
-
-		// Writing the file again
-		fs.writeFileSync(xcodeProjectPath, xcodeProject.writeSync(), 'utf-8');
-		debug('file correctly fixed: ' + xcodeProjectPath);
+	configurations = nonComments(xcodeProject.pbxXCBuildConfigurationSection());
+	// Adding or changing the parameters we need
+	Object.keys(configurations).forEach(function (config) {
+		buildSettings = configurations[config].buildSettings;
+		buildSettings.LD_RUNPATH_SEARCH_PATHS = RUNPATH_SEARCH_PATHS_XCODE;
+		buildSettings.SWIFT_OBJC_BRIDGING_HEADER = swiftBridgingHeadXcode;
+		buildSettings.IPHONEOS_DEPLOYMENT_TARGET = BUILD_VERSION_XCODE;
+		buildSettings.ENABLE_BITCODE = ENABLE_BITCODE_XCODE;
 	});
+
+	// Writing the file again
+	fs.writeFileSync(xcodeProjectPath, xcodeProject.writeSync(), 'utf-8');
+	debug('file correctly fixed: ' + xcodeProjectPath);
 };
 
 
